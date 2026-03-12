@@ -1,0 +1,459 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>مسابقات ابوصبيع • النسخة النهائية</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css">
+<link href="https://fonts.googleapis.com/css2?family=Cairo:wght@400;600;700&display=swap" rel="stylesheet">
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-database-compat.js"></script>
+<style>
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:'Cairo',sans-serif;background:linear-gradient(145deg,#0a3d1a,#1b5e2a);min-height:100vh;display:flex;justify-content:center;align-items:center;padding:10px}
+.app{width:450px;max-width:100%;background:rgba(255,255,255,0.1);backdrop-filter:blur(15px);border-radius:30px;padding:20px;box-shadow:0 20px 40px #0000004d;border:1px solid rgba(255,215,0,0.3);color:#fff}
+.screen{display:none; max-height:80vh; overflow-y:auto; padding-bottom:20px; scroll-behavior:smooth;}
+.active{display:block}
+h2,h3{text-align:center;margin-bottom:20px;font-weight:700;text-shadow:2px 2px 4px #0000004d}
+h2 i,h3 i{margin-left:8px;color:#ffcf33}
+.input-group{position:relative;margin:15px 0}
+.input-group i{position:absolute;right:15px;top:50%;transform:translateY(-50%);color:#888;font-size:1.2rem}
+input,textarea{width:100%;padding:14px 45px 14px 15px;border:none;border-radius:50px;font-family:'Cairo',sans-serif;font-size:1rem;background:rgba(255,255,255,0.9);transition:0.3s}
+input:focus,textarea:focus{outline:2px solid #ffcf33;background:#fff}
+button{width:100%;padding:14px;margin:8px 0;border:none;border-radius:50px;font-weight:700;font-size:1.1rem;cursor:pointer;display:flex;align-items:center;justify-content:center;gap:10px;transition:0.2s}
+button:hover{transform:translateY(-2px);box-shadow:0 5px 15px #0000004d}
+button.primary{background:#ffcf33;color:#1e3c1e}
+button.secondary{background:#e0e0e0;color:#333}
+button.danger{background:#dc3545;color:#fff}
+.question-card{background:#fff;color:#1e3c1e;border-radius:25px;padding:20px;margin:20px 0;box-shadow:0 10px 20px #00000033}
+.option{background:#f5f5f5;padding:15px;margin:10px 0;border-radius:50px;cursor:pointer;transition:0.2s;font-weight:600;display:flex;align-items:center;gap:10px;border:2px solid transparent}
+.option:hover{background:#ffcf33;color:#1e3c1e;transform:scale(1.02)}
+.option.correct{background:#28a745;color:#fff;border-color:#fff;pointer-events:none}
+.option.wrong{background:#dc3545;color:#fff;border-color:#fff;pointer-events:none}
+.option.disabled{pointer-events:none;opacity:0.6}
+.timer{background:rgba(0,0,0,0.5);padding:15px;border-radius:50px;text-align:center;font-size:1.5rem;font-weight:700;margin:15px 0;display:flex;align-items:center;justify-content:center;gap:10px}
+.progress-bar{width:100%;height:10px;background:rgba(255,255,255,0.3);border-radius:10px;margin:10px 0;overflow:hidden}
+.progress-fill{height:100%;background:#ffcf33;width:100%;transition:width 1s linear}
+.chat-container{background:#fff;color:#333;border-radius:20px;padding:15px;margin:15px 0;max-height:200px;overflow-y:auto;display:flex;flex-direction:column;gap:8px}
+.chat-message{background:#e9ecef;padding:8px 15px;border-radius:20px;max-width:85%;word-wrap:break-word;font-size:.95rem;display:flex;align-items:center;gap:8px}
+.chat-message .time{font-size:.7rem;color:#888;margin-right:10px}
+.player-list{background:rgba(255,255,255,0.2);border-radius:20px;padding:15px;margin:15px 0;max-height:250px;overflow-y:auto}
+.player-item{background:rgba(255,255,255,0.1);padding:10px 15px;margin:5px 0;border-radius:50px;display:flex;align-items:center;justify-content:space-between;backdrop-filter:blur(5px);border:1px solid rgba(255,215,0,0.3)}
+.player-item.first{background:gold;color:#1e3c1e;font-weight:700}
+.badge{background:#ffcf33;color:#1e3c1e;padding:3px 10px;border-radius:50px;font-size:.8rem;font-weight:700}
+.flex-row{display:flex;gap:10px}
+.admin-control{background:rgba(0,0,0,0.2);border-radius:20px;padding:15px;margin:15px 0}
+.small-btn{padding:8px;font-size:.9rem}
+</style>
+</head>
+<body>
+<div class="app">
+<!-- شاشات -->
+<div id="login-screen" class="screen active">
+<h2><i class="fas fa-gamepad"></i> مسابقات ابوصبيع</h2>
+<div class="input-group"><i class="fas fa-user"></i><input id="player-name" placeholder="اسمك" maxlength="20"></div>
+<button class="primary" onclick="playerLogin()"><i class="fas fa-sign-in-alt"></i> دخول</button>
+<button class="secondary" onclick="showScreen('admin-login-screen')"><i class="fas fa-crown"></i> الكنترول</button>
+</div>
+
+<div id="player-screen" class="screen">
+<h3><i class="fas fa-user-circle"></i> مرحباً <span id="player-welcome"></span></h3>
+<div id="player-question"></div>
+<div class="timer"><i class="fas fa-hourglass-half"></i> <span id="timer-text">10</span> ث</div>
+<div class="progress-bar"><div class="progress-fill" id="timer-progress"></div></div>
+<div class="chat-container" id="player-chat"></div>
+<div class="flex-row">
+<input id="player-msg" placeholder="رسالة...">
+<button class="primary small-btn" onclick="sendPlayerMsg()"><i class="fas fa-paper-plane"></i></button>
+</div>
+<button class="secondary" onclick="logout()"><i class="fas fa-sign-out-alt"></i> خروج</button>
+</div>
+
+<div id="admin-screen" class="screen">
+<h3><i class="fas fa-crown"></i> لوحة التحكم</h3>
+<div class="admin-control">
+<h4><i class="fas fa-question-circle"></i> إضافة سؤال</h4>
+<input id="q-text" placeholder="السؤال">
+<input id="opt1" placeholder="الخيار 1">
+<input id="opt2" placeholder="الخيار 2">
+<input id="opt3" placeholder="الخيار 3">
+<input id="correct-opt" type="number" placeholder="رقم الصحيح (1-3)" min="1" max="3">
+<button class="primary small-btn" onclick="addQuestion()"><i class="fas fa-plus"></i> إضافة</button>
+</div>
+
+<div class="admin-control">
+<h4><i class="fas fa-sliders-h"></i> التحكم</h4>
+<div class="flex-row">
+<button class="primary small-btn" onclick="startGame()"><i class="fas fa-play"></i> بدء</button>
+<button class="primary small-btn" onclick="nextQuestion()"><i class="fas fa-forward"></i> التالي</button>
+<button class="danger small-btn" onclick="endGame()"><i class="fas fa-stop"></i> إنهاء</button>
+</div>
+<label>الوقت: <input id="question-time" type="number" value="15" min="5" max="60" style="width:70px;"></label>
+</div>
+
+<div class="admin-control">
+<h4><i class="fas fa-users"></i> اللاعبون (<span id="player-count">0</span>)</h4>
+<div class="player-list" id="admin-players"></div>
+<button class="secondary small-btn" onclick="broadcastMsg()"><i class="fas fa-bullhorn"></i> إعلان</button>
+</div>
+
+<div class="admin-control">
+<h4><i class="fas fa-comments"></i> الشات</h4>
+<div class="chat-container" id="admin-chat"></div>
+<div class="flex-row">
+<input id="admin-msg" placeholder="رد...">
+<button class="primary small-btn" onclick="sendAdminMsg()"><i class="fas fa-reply"></i></button>
+</div>
+</div>
+<button class="secondary" onclick="adminLogout()"><i class="fas fa-sign-out-alt"></i> خروج</button>
+</div>
+
+<div id="admin-login-screen" class="screen">
+<h3><i class="fas fa-lock"></i> دخول الكنترول</h3>
+<div class="input-group"><i class="fas fa-key"></i><input type="password" id="admin-password"></div>
+<button class="primary" onclick="adminLogin()"><i class="fas fa-sign-in-alt"></i> دخول</button>
+<button class="secondary" onclick="showScreen('login-screen')"><i class="fas fa-arrow-right"></i> رجوع</button>
+</div>
+
+<div id="results-screen" class="screen">
+<h2><i class="fas fa-trophy"></i> النتائج</h2>
+<div class="player-list" id="results-list"></div>
+<button class="primary" onclick="resetGame()"><i class="fas fa-redo-alt"></i> بدء جديد</button>
+</div>
+
+</div>
+
+<script>
+// Firebase config
+const firebaseConfig = {
+  databaseURL: "https://moadmoa12-748e1-default-rtdb.firebaseio.com/"
+};
+firebase.initializeApp(firebaseConfig);
+const db = firebase.database();
+
+// بيانات اللعبة
+let u = null, p = [], q = [], c = [], qi = -1, active = 0, timer = null, qStart = 0;
+let answered = false; // لمنع الإجابة أكثر من مرة على نفس السؤال
+
+// تحميل البيانات من Firebase
+function load() {
+  db.ref("game").on("value", (snap) => {
+    let d = snap.val();
+    if (d) {
+      p = d.players || [];
+      q = d.questions || [];
+      c = d.chat || [];
+      qi = d.questionIndex !== undefined ? d.questionIndex : -1;
+      active = d.active || false;
+    } else {
+      p = []; q = []; c = []; qi = -1; active = false;
+    }
+    ui();
+  });
+}
+
+// حفظ البيانات في Firebase
+function save() {
+  db.ref("game").set({
+    players: p,
+    questions: q,
+    chat: c,
+    questionIndex: qi,
+    active: active
+  });
+}
+
+// تبديل الشاشات
+function showScreen(s) {
+  document.querySelectorAll('.screen').forEach(x => x.classList.remove('active'));
+  document.getElementById(s).classList.add('active');
+  if (s === 'player-screen' && active && qi >= 0 && qi < q.length) {
+    displayQ();
+  }
+}
+
+// تحديث الواجهة
+function ui() {
+  rChats();
+  if (document.getElementById('admin-screen').classList.contains('active')) rPlayers();
+  if (document.getElementById('player-screen').classList.contains('active')) {
+    if (active && qi >= 0 && qi < q.length) {
+      displayQ();
+    } else {
+      document.getElementById('player-question').innerHTML = '<div class="question-card">⏳ في انتظار السؤال التالي...</div>';
+    }
+  }
+}
+
+// تسجيل دخول اللاعب
+function playerLogin() {
+  let n = document.getElementById('player-name').value.trim();
+  if (!n) return alert('الرجاء إدخال الاسم');
+  if (p.some(x => x.name == n)) return alert('الاسم موجود');
+  u = { name: n, points: 0 };
+  p.push(u);
+  save();
+  document.getElementById('player-welcome').innerText = n;
+  showScreen('player-screen');
+  ui();
+}
+
+// خروج اللاعب
+function logout() {
+  if (u) {
+    p = p.filter(x => x.name != u.name);
+    u = null;
+    save();
+  }
+  showScreen('login-screen');
+}
+
+// عرض السؤال للاعب
+function displayQ() {
+  if (!active || qi < 0 || !q[qi]) {
+    document.getElementById('player-question').innerHTML = '<div class="question-card">⏳ لا يوجد سؤال حالياً</div>';
+    return;
+  }
+  let Q = q[qi];
+  let h = `<div class="question-card"><h4>${Q.q}</h4>`;
+  Q.options.forEach((o, i) => {
+    h += `<div class="option" onclick="answer(${i+1})" id="opt-${i+1}"><i class="fas fa-circle"></i> ${o}</div>`;
+  });
+  h += '</div>';
+  document.getElementById('player-question').innerHTML = h;
+  answered = false;
+  startTimer();
+}
+
+// مؤقت السؤال
+function startTimer() {
+  if (timer) clearInterval(timer);
+  let max = +(document.getElementById('question-time')?.value) || 15;
+  let left = max;
+  let start = Date.now();
+  qStart = start;
+  document.getElementById('timer-text').innerText = left;
+  document.getElementById('timer-progress').style.width = '100%';
+  timer = setInterval(() => {
+    let e = (Date.now() - start) / 1000;
+    left = Math.max(0, max - e);
+    document.getElementById('timer-text').innerText = Math.ceil(left);
+    document.getElementById('timer-progress').style.width = (left / max * 100) + '%';
+    if (left <= 0) {
+      clearInterval(timer);
+      // إذا انتهى الوقت ولم يجب، نظهر الإجابة الصحيحة
+      if (!answered) {
+        showCorrectAnswer();
+      }
+    }
+  }, 100);
+}
+
+// إظهار الإجابة الصحيحة بعد الإجابة أو انتهاء الوقت
+function showCorrectAnswer() {
+  let Q = q[qi];
+  if (!Q) return;
+  // تعطيل جميع الخيارات
+  document.querySelectorAll('.option').forEach(opt => opt.classList.add('disabled'));
+  // تمييز الصحيح
+  let correctOpt = document.getElementById(`opt-${Q.correct}`);
+  if (correctOpt) correctOpt.classList.add('correct');
+  answered = true;
+}
+
+// إجابة اللاعب
+function answer(ch) {
+  if (!u || !active || qi < 0 || answered) return;
+  let Q = q[qi];
+  if (!Q) return;
+  
+  // منع الإجابة المكررة
+  let k = `ans_${qi}_${u.name}`;
+  if (localStorage.getItem(k)) {
+    alert('لقد أجبت على هذا السؤال بالفعل');
+    return;
+  }
+
+  let took = (Date.now() - qStart) / 1000;
+  let max = +(document.getElementById('question-time')?.value) || 15;
+  let pts = 0;
+  let isCorrect = (ch == Q.correct);
+  
+  // تمييز الخيارات
+  document.querySelectorAll('.option').forEach(opt => opt.classList.add('disabled'));
+  let chosenOpt = document.getElementById(`opt-${ch}`);
+  let correctOpt = document.getElementById(`opt-${Q.correct}`);
+  
+  if (isCorrect) {
+    let bonus = Math.max(0, max - took);
+    pts = Math.min(100, 50 + Math.floor(bonus * 5));
+    alert(`✅ إجابة صحيحة! +${pts} نقطة`);
+    if (chosenOpt) chosenOpt.classList.add('correct');
+  } else {
+    alert(`❌ إجابة خاطئة. الإجابة الصحيحة هي: ${Q.options[Q.correct-1]}`);
+    if (chosenOpt) chosenOpt.classList.add('wrong');
+    if (correctOpt) correctOpt.classList.add('correct');
+  }
+
+  if (pts > 0) {
+    u.points += pts;
+    let idx = p.findIndex(x => x.name == u.name);
+    if (idx >= 0) p[idx].points = u.points;
+    save();
+  }
+  
+  localStorage.setItem(k, '1');
+  answered = true;
+  clearInterval(timer);
+}
+
+// دخول الكنترول
+function adminLogin() {
+  if (document.getElementById('admin-password').value == 'moadmoad12') {
+    showScreen('admin-screen');
+    rPlayers();
+    rChats();
+  } else alert('كلمة المرور خطأ');
+}
+
+function adminLogout() { showScreen('login-screen'); }
+
+// إضافة سؤال
+function addQuestion() {
+  let t = document.getElementById('q-text').value.trim(),
+      o1 = document.getElementById('opt1').value.trim(),
+      o2 = document.getElementById('opt2').value.trim(),
+      o3 = document.getElementById('opt3').value.trim(),
+      cor = parseInt(document.getElementById('correct-opt').value);
+  if (!t || !o1 || !o2 || !o3 || isNaN(cor) || cor < 1 || cor > 3) return alert('املأ الحقول');
+  q.push({ q: t, options: [o1, o2, o3], correct: cor });
+  save();
+  alert('تم إضافة السؤال');
+  // تفريغ الحقول
+  document.getElementById('q-text').value = '';
+  document.getElementById('opt1').value = '';
+  document.getElementById('opt2').value = '';
+  document.getElementById('opt3').value = '';
+  document.getElementById('correct-opt').value = '';
+}
+
+// التحكم باللعبة
+function startGame() {
+  if (!q.length) return alert('لا توجد أسئلة');
+  active = true;
+  qi = 0;
+  // مسح الإجابات السابقة
+  Object.keys(localStorage).forEach(k => { if (k.startsWith('ans_')) localStorage.removeItem(k); });
+  save();
+  addChat('🎮 بدأت المسابقة', 'نظام');
+  // عرض السؤال الأول مباشرة
+  if (document.getElementById('player-screen').classList.contains('active')) {
+    displayQ();
+  }
+}
+
+function nextQuestion() {
+  if (!active) return;
+  if (qi + 1 >= q.length) {
+    endGame();
+    return;
+  }
+  qi++;
+  save();
+  // عرض السؤال التالي
+  if (document.getElementById('player-screen').classList.contains('active')) {
+    displayQ();
+  }
+}
+
+function endGame() {
+  active = false;
+  qi = -1;
+  clearInterval(timer);
+  save();
+  // ترتيب النتائج
+  let sorted = [...p].sort((a, b) => b.points - a.points);
+  let html = '';
+  sorted.forEach((x, i) => {
+    html += `<div class="player-item ${i === 0 ? 'first' : ''}"><i class="fas fa-user"></i> ${x.name} <span class="badge">${x.points}</span></div>`;
+  });
+  document.getElementById('results-list').innerHTML = html;
+  showScreen('results-screen');
+  addChat('🏁 انتهت المسابقة', 'نظام');
+}
+
+// قائمة اللاعبين
+function rPlayers() {
+  let h = '';
+  p.sort((a, b) => b.points - a.points).forEach(x => {
+    h += `<div class="player-item"><i class="fas fa-user"></i> ${x.name} <span class="badge">${x.points}</span> <i class="fas fa-times-circle" style="color:#dc3545;cursor:pointer;" onclick="kick('${x.name}')"></i></div>`;
+  });
+  document.getElementById('admin-players').innerHTML = h || '<div class="player-item">لا يوجد لاعبين</div>';
+  document.getElementById('player-count').innerText = p.length;
+}
+
+// طرد لاعب
+function kick(n) {
+  if (confirm(`طرد ${n}؟`)) {
+    p = p.filter(x => x.name != n);
+    if (u && u.name == n) u = null;
+    save();
+    rPlayers();
+  }
+}
+
+// الشات
+function broadcastMsg() {
+  let m = prompt('الإعلان:');
+  if (m) addChat('📢 ' + m, 'مدير');
+}
+
+function addChat(txt, snd) {
+  let t = new Date().toLocaleTimeString('ar-EG', {hour:'2-digit',minute:'2-digit'});
+  c.push({text: txt, sender: snd, time: t});
+  if (c.length > 50) c.shift();
+  save();
+  rChats();
+}
+
+function sendPlayerMsg() {
+  let inp = document.getElementById('player-msg'), msg = inp.value.trim();
+  if (msg && u) addChat(msg, u.name);
+  inp.value = '';
+}
+
+function sendAdminMsg() {
+  let inp = document.getElementById('admin-msg'), msg = inp.value.trim();
+  if (msg) addChat(msg, 'مدير');
+  inp.value = '';
+}
+
+function rChats() {
+  let pc = document.getElementById('player-chat'), ac = document.getElementById('admin-chat');
+  if (pc) {
+    pc.innerHTML = c.slice().reverse().map(x => 
+      `<div class="chat-message"><i class="fas fa-user"></i> <strong>${x.sender}:</strong> ${x.text} <span class="time">${x.time}</span></div>`
+    ).join('');
+  }
+  if (ac) {
+    ac.innerHTML = c.slice().reverse().map(x => 
+      `<div class="chat-message"><i class="fas fa-user"></i> <strong>${x.sender}:</strong> ${x.text} <span class="time">${x.time}</span></div>`
+    ).join('');
+  }
+}
+
+// إعادة ضبط اللعبة
+function resetGame() {
+  if (confirm('مسح كل البيانات؟')) {
+    db.ref("game").remove();
+    p = []; q = []; c = []; qi = -1; active = false; u = null;
+    showScreen('login-screen');
+  }
+}
+
+// تحميل البيانات عند فتح الصفحة
+window.onload = load;
+</script>
+</body>
+</html>
